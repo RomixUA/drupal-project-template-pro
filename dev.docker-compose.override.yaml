@@ -1,0 +1,39 @@
+version: "3.7"
+
+services:
+  php:
+    environment:
+      PHP_SENDMAIL_PATH: /usr/sbin/sendmail -t -i -S mailhog:1025
+      # Read instructions at https://wodby.com/docs/stacks/php/local/#xdebug
+      PHP_XDEBUG: 1
+      PHP_XDEBUG_DEFAULT_ENABLE: 1
+      PHP_XDEBUG_REMOTE_CONNECT_BACK: 0
+      PHP_IDE_CONFIG: serverName=default
+      PHP_XDEBUG_IDEKEY: "PHOSTORM"
+      PHP_XDEBUG_REMOTE_HOST: host.docker.internal # Docker 18.03+ Mac/Win
+      # PHP_XDEBUG_REMOTE_HOST: 172.17.0.1 # Linux
+      # PHP_XDEBUG_REMOTE_HOST: 10.254.254.254 # macOS
+      # PHP_XDEBUG_REMOTE_HOST: 10.0.75.1 # Windows
+      PHP_XDEBUG_REMOTE_LOG: /tmp/php-xdebug.log
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: "${PROJECT_NAME}_mailhog"
+    labels:
+      - "traefik.http.services.${PROJECT_NAME}_mailhog.loadbalancer.server.port=8025"
+      - "traefik.http.routers.${PROJECT_NAME}_mailhog.rule=Host(`mailhog.${PROJECT_BASE_URL}`)"
+
+  pma:
+    image: phpmyadmin/phpmyadmin
+    container_name: "${PROJECT_NAME}_pma"
+    environment:
+      PMA_HOST: $DB_HOST
+      PMA_USER: $DB_USER
+      PMA_PASSWORD: $DB_PASSWORD
+      UPLOAD_LIMIT: 1G
+    labels:
+      - "traefik.http.routers.${PROJECT_NAME}_pma.rule=Host(`pma.${PROJECT_BASE_URL}`)"
+
+  traefik:
+    ports:
+      - '${PROJECT_PORT}:80'
