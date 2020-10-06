@@ -46,6 +46,8 @@ services:
       MYSQL_DATABASE: $DB_NAME
       MYSQL_USER: $DB_USER
       MYSQL_PASSWORD: $DB_PASSWORD
+    volumes:
+      - ./.database:/var/lib/mysql
 
   traefik:
     image: traefik:$TREAFIK_TAG

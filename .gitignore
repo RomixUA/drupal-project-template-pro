@@ -12,6 +12,7 @@
 
 # Ignore Drupal's file directory
 /web/sites/*/files/
+/files/
 
 # Ignore SimpleTest multi-site environment.
 /web/sites/simpletest
@@ -33,3 +34,6 @@ node_modules/
 
 # Ignore docker-compose override.
 /docker-compose.override.yaml
+
+# Containers files.
+/.database/

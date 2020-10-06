@@ -38,8 +38,49 @@ class ScriptHandler {
     }
 
     // Prepare the settings file for installation
-    if (!$fs->exists($drupalRoot . '/sites/default/settings.php') && $fs->exists($drupalRoot . '/sites/default/default.settings.php')) {
-      $fs->copy($drupalRoot . '/sites/default/default.settings.php', $drupalRoot . '/sites/default/settings.php');
+    $settings_file = $drupalRoot . '/sites/default/settings.php';
+    $default_settings_file = $drupalRoot . '/sites/default/default.settings.php';
+    if (!$fs->exists($settings_file) && $fs->exists($default_settings_file)) {
+      $fs->copy($default_settings_file, $settings_file);
+      $content = file_get_contents($settings_file);
+      
+      // Add database connection.
+      $database_connection = <<<EOT
+\$databases['default']['default'] = [
+  'driver' => getenv('DB_DRIVER'),
+  'host' => getenv('DB_HOST'),
+  'port' => getenv('DB_PORT'),
+  'database' => getenv('DB_NAME'),
+  'username' => getenv('DB_USER'),
+  'password' => getenv('DB_PASSWORD'),
+  'prefix' => getenv('DB_PREFIX'),
+  'collation' => getenv('DB_COLLATION'),
+];
+EOT;
+      $content = str_replace('$databases = [];', $database_connection, $content);
+
+      // Uncomment settings variables.
+      $commented_settings = [
+        'config_sync_directory',
+        'file_public_path',
+        'file_private_path',
+        'file_temp_path',
+      ];
+      foreach ($commented_settings as $commented_setting) {
+        $content = preg_replace('/(^\#\s)(\$settings\[\'' . $commented_setting . '\'\])/m', '$2', $content);
+      }
+
+      // Uncomment settings.local.php include.
+      $content = preg_replace('/(^\#\n)?(^\#\s)(.*settings\.local\.php.*\n)(^\#\s)(.*\n)(^\#\s)(\})/m', '$3$5$7', $content);
+
+      // Replace hash salt with getenv() function.
+      $content = preg_replace('/(^\$settings\[\'hash_salt\'\])(\s=\s\'\')/m', '$1 = getenv(\'DRUPAL_HASH_SALT\')', $content);
+
+      if (file_put_contents($settings_file, $content) === FALSE) {
+        $event->getIO()->writeError('<error>Failed to modify ' . $settings_file . ' file. Verify the file permissions.</error>.');
+        exit(1);
+      }
+
       require_once $drupalRoot . '/core/includes/bootstrap.inc';
       require_once $drupalRoot . '/core/includes/install.inc';
       new Settings([]);
@@ -47,17 +88,47 @@ class ScriptHandler {
         'value' => Path::makeRelative($drupalFinder->getComposerRoot() . '/config/sync', $drupalRoot),
         'required' => TRUE,
       ];
+      $settings['settings']['file_public_path'] = (object) [
+        'value' => Path::makeRelative($drupalFinder->getComposerRoot() . '/sites/default/files/', $drupalRoot),
+        'required' => TRUE,
+      ];
+      $settings['settings']['file_private_path'] = (object) [
+        'value' => Path::makeRelative($drupalFinder->getComposerRoot() . '/files', $drupalRoot),
+        'required' => TRUE,
+      ];
+      $settings['settings']['hash_salt'] = (object) [
+        'value' => "FUNC[getenv('DRUPAL_HASH_SALT')]",
+        'required' => TRUE,
+      ];
+
       drupal_rewrite_settings($settings, $drupalRoot . '/sites/default/settings.php');
       $fs->chmod($drupalRoot . '/sites/default/settings.php', 0666);
+      $fs->remove($default_settings_file);
       $event->getIO()->write("Created a sites/default/settings.php file with chmod 0666");
     }
 
-    // Create the files directory with chmod 0777
+    // Prepare the settings file for installation
+    $services_file = $drupalRoot . '/sites/default/services.yml';
+    $default_services_file = $drupalRoot . '/sites/default/default.services.yml';
+    if (!$fs->exists($services_file) && $fs->exists($default_services_file)) {
+      $fs->copy($default_services_file, $services_file);
+      $fs->remove($default_services_file);
+    }
+
+    // Create the public files directory with chmod 0777
     if (!$fs->exists($drupalRoot . '/sites/default/files')) {
       $oldmask = umask(0);
       $fs->mkdir($drupalRoot . '/sites/default/files', 0777);
       umask($oldmask);
       $event->getIO()->write("Created a sites/default/files directory with chmod 0777");
+    }
+
+    // Create the files directory with chmod 0777
+    if (!$fs->exists($drupalRoot . '/../files')) {
+      $oldmask = umask(0);
+      $fs->mkdir($drupalRoot . '/../files', 0777);
+      umask($oldmask);
+      $event->getIO()->write("Created a ../files directory with chmod 0777");
     }
   }
 

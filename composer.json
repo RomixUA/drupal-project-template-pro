@@ -71,8 +71,6 @@
                 "[web-root]/README.txt": false,
                 "[web-root]/web.config": false,
                 "[web-root]/sites/README.txt": false,
-                "[web-root]/sites/default/default.services.yml": false,
-                "[web-root]/sites/default/default.settings.php": false,
                 "[web-root]/modules/README.txt": false,
                 "[web-root]/profiles/README.txt": false,
                 "[web-root]/themes/README.txt": false
